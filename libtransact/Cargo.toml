@@ -23,7 +23,7 @@ cbor-codec = "0.7"
 libc = ">=0.2.35"
 openssl = "0.10"
 uuid = { version = "0.7", features = ["v4"] }
-sawtooth-sdk = { version = "0.3", optional = true }
+sawtooth-sdk = {git = "https://github.com/agunde406/sawtooth-sdk-rust", branch = "agunde406-up-secp",  optional = true }
 
 [dev-dependencies]
 rand_hc = "0.1"
