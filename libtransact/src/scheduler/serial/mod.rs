@@ -113,19 +113,21 @@ impl Scheduler for SerialScheduler {
 
     fn add_batch(&mut self, batch: BatchPair) -> Result<(), SchedulerError> {
         error!("Add batch");
-        let mut shared = self.shared_lock.lock()?;
+        {
+            let mut shared = self.shared_lock.lock()?;
 
-        if shared.finalized() {
-            return Err(SchedulerError::SchedulerFinalized);
+            if shared.finalized() {
+                return Err(SchedulerError::SchedulerFinalized);
+            }
+
+            if shared.batch_already_queued(&batch) {
+                return Err(SchedulerError::DuplicateBatch(
+                    batch.batch().header_signature().into(),
+                ));
+            }
+
+            shared.add_unscheduled_batch(batch);
         }
-
-        if shared.batch_already_queued(&batch) {
-            return Err(SchedulerError::DuplicateBatch(
-                batch.batch().header_signature().into(),
-            ));
-        }
-
-        shared.add_unscheduled_batch(batch);
 
         // Notify the core that a batch has been added. Note that the batch is
         // not sent across the channel because the batch has already been added
@@ -188,12 +190,14 @@ impl Scheduler for SerialScheduler {
     fn take_task_iterator(
         &mut self,
     ) -> Result<Box<dyn Iterator<Item = ExecutionTask> + Send>, SchedulerError> {
+        error!("Taking task iter");
         self.task_iterator
             .take()
             .ok_or(SchedulerError::NoTaskIterator)
     }
 
     fn new_notifier(&mut self) -> Result<Box<dyn ExecutionTaskCompletionNotifier>, SchedulerError> {
+        error!("new notifier");
         Ok(Box::new(
             execution::SerialExecutionTaskCompletionNotifier::new(self.core_tx.clone()),
         ))

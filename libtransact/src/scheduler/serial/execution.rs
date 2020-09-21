@@ -46,11 +46,16 @@ impl Iterator for SerialExecutionTaskIterator {
         error!("Next called in serial execution task iter");
         match self.tx.send(CoreMessage::Next) {
             Ok(_) => {
+                error!("SerialExecutionTaskIterator for message");
                 match self.rx.recv() {
-                    Ok(task) => task,
+                    Ok(task) => {
+                        error!("Got message");
+                        task
+                    }
                     Err(_) => {
                         // This is expected if the other side shuts down before this
                         // end.
+                        error!("Shuting dow becasue other end has gone away");
                         None
                     }
                 }

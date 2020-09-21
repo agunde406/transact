@@ -230,7 +230,22 @@ impl ExecutorThread {
         std::thread::Builder::new()
             .name(format!("execution_adapter_thread_{}", index))
             .spawn(move || {
-                while let Ok(execution_command) = receiver.recv() {
+                loop {
+                    error!("execution_adapter_thread_ waiting for message: {}", index);
+                    let execution_command = match receiver.recv() {
+                        Ok(ec) => {
+                            error!("execution_adapter_thread_ got message");
+                            ec
+                        }
+                        Err(err) => {
+                            error!(
+                                "execution_adapter_thread_ waiting for message: {} error: {}",
+                                index, err
+                            );
+                            break;
+                        }
+                    };
+
                     match execution_command {
                         ExecutionCommand::Event(execution_event) => {
                             error!("execution adapter got event");
@@ -279,6 +294,7 @@ impl ExecutorThread {
                             }
                         }
                         ExecutionCommand::Sentinel => {
+                            error!("sentinel");
                             break;
                         }
                     }
@@ -308,6 +324,7 @@ impl ExecutorThread {
                 let mut reader_index = 0usize;
                 let mut readers: BTreeMap<usize, ExecutionTaskReader> = BTreeMap::new();
                 loop {
+                    error!("loop internal execuotr");
                     for execution_event in unparked.drain(0..) {
                         error!("Unpark event");
                         Self::try_send_execution_event(
@@ -316,7 +333,7 @@ impl ExecutorThread {
                             &mut parked,
                         );
                     }
-
+                    error!("wait for executor command");
                     match receiver.recv() {
                         Ok(ExecutorCommand::Execution(execution_event)) => {
                             error!("Execution event recieved");

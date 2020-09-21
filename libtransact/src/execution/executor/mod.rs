@@ -60,6 +60,7 @@ impl Executor {
     pub fn start(&mut self) -> Result<(), ExecutorError> {
         error!("Starting executor");
         self.executor_thread.start().map_err(|_| {
+            error!("executor has already started");
             ExecutorError::AlreadyStarted("The Executor has already had start called.".to_string())
         })
     }

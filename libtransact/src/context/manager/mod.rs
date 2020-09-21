@@ -81,6 +81,7 @@ impl ContextManager {
         context_id: &ContextId,
     ) -> Result<&mut Context, ContextManagerError> {
         self.contexts.get_mut(context_id).ok_or_else(|| {
+            error!("Unable to get context_mut");
             ContextManagerError::MissingContextError(
                 str::from_utf8(context_id)
                     .expect("Unable to generate string from ContextId")
@@ -92,6 +93,7 @@ impl ContextManager {
     /// Returns a Context within the ContextManager's Context list specified by the ContextId
     fn get_context(&self, context_id: &ContextId) -> Result<&Context, ContextManagerError> {
         self.contexts.get(context_id).ok_or_else(|| {
+            error!("Unable to get context");
             ContextManagerError::MissingContextError(
                 str::from_utf8(context_id)
                     .expect("Unable to generate string from ContextId")

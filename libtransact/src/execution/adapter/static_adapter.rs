@@ -83,6 +83,7 @@ impl StaticExecutionAdapter {
                         }
                     }
                 }
+                error!("Statice adapter error recv, shutting down");
                 true
             })
             .map_err(|err| ExecutionAdapterError::GeneralExecutionError(Box::new(err)))?;
@@ -147,12 +148,14 @@ fn register_handlers(
 ) {
     for handler in handlers {
         for version in handler.family_versions() {
+            error!("register {}", handler.family_name());
             execution_registry.register_transaction_family(TransactionFamily::new(
                 handler.family_name().to_owned(),
                 version.clone(),
             ));
         }
     }
+    error!("Done");
 }
 
 impl ExecutionAdapter for StaticExecutionAdapter {

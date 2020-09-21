@@ -252,6 +252,7 @@ impl SchedulerCore {
         let transaction_pair = match transaction.into_pair() {
             Ok(pair) => pair,
             Err(err) => {
+                error!("ill-formed transaction");
                 self.invalidate_current_batch(InvalidTransactionResult {
                     transaction_id,
                     error_message: format!("ill-formed transaction: {}", err),
@@ -286,6 +287,7 @@ impl SchedulerCore {
             .current_batch
             .as_ref()
             .ok_or_else(|| {
+                error!("attemping to invalidate current batch");
                 CoreError::Internal(
                     "attemping to invalidate current batch but no current batch exists".into(),
                 )
@@ -346,6 +348,7 @@ impl SchedulerCore {
     }
 
     fn send_batch_result(&mut self) -> Result<(), CoreError> {
+        error!("attemping to send batch result");
         let batch = self.current_batch.take().ok_or_else(|| {
             CoreError::Internal(
                 "attempting to send batch result but no current batch is executing".into(),
@@ -363,6 +366,7 @@ impl SchedulerCore {
     }
 
     fn send_scheduler_error(&mut self, error: SchedulerError) -> Result<(), CoreError> {
+        error!("attemping to send scheduler error");
         self.shared_lock.lock()?.error_callback()(error);
         Ok(())
     }
@@ -370,6 +374,7 @@ impl SchedulerCore {
     fn run(&mut self) -> Result<(), CoreError> {
         error!("Starting core of serial scheduler");
         loop {
+            error!("loop in scheduler core");
             match self.rx.recv() {
                 Ok(CoreMessage::BatchAdded) => {
                     error!("batch_added");
@@ -380,6 +385,7 @@ impl SchedulerCore {
                     let current_txn_id = self.current_txn.clone().unwrap_or_else(|| "".into());
                     match task_notification {
                         ExecutionTaskCompletionNotification::Valid(context_id, transaction_id) => {
+                            error!("valid transaction");
                             if transaction_id != current_txn_id {
                                 self.send_scheduler_error(SchedulerError::UnexpectedNotification(
                                     transaction_id,
@@ -395,6 +401,7 @@ impl SchedulerCore {
                             error!("execution_result valid");
                         }
                         ExecutionTaskCompletionNotification::Invalid(_context_id, result) => {
+                            error!("invalid transaction");
                             if result.transaction_id != current_txn_id {
                                 self.send_scheduler_error(SchedulerError::UnexpectedNotification(
                                     result.transaction_id,
@@ -408,6 +415,7 @@ impl SchedulerCore {
                     };
 
                     if self.txn_queue.is_empty() {
+                        error!("send batch resutls if txn queue empty");
                         self.send_batch_result()?;
                     }
 
@@ -429,6 +437,7 @@ impl SchedulerCore {
                     error!("cancelled");
                     // If a batch is currently executing, return it using the provided sender
                     sender.send(self.current_batch.take()).map_err(|_| {
+                        error!("aborted batch receiver dropped");
                         CoreError::Internal("aborted batch receiver dropped".into())
                     })?;
                     // Also remove the current transaction
@@ -465,21 +474,23 @@ impl SchedulerCore {
     }
 
     pub fn start(mut self) -> Result<std::thread::JoinHandle<()>, SchedulerError> {
-        error!("Does it get here");
+        error!("Does it get here, start called");
         thread::Builder::new()
             .name(String::from("Thread-SerialScheduler"))
             .spawn(move || {
                 error!("Starting serial scheduler");
                 if let Err(err) = self.run() {
+                    error!("Scheduler error! {}", err);
                     // Attempt to send notification using the error callback; if that fails, just
                     // log it.
                     let error = SchedulerError::Internal(format!(
                         "serial scheduler's internal thread ended due to error: {}",
                         err
                     ));
-                    error!("Scheduler error! {}", error);
                     self.send_scheduler_error(error.clone())
                         .unwrap_or_else(|_| error!("{}", error));
+                } else {
+                    error!("Serial scheduler is shutting down");
                 }
             })
             .map_err(|err| {
