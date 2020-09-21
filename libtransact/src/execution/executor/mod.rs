@@ -58,6 +58,7 @@ impl Executor {
     }
 
     pub fn start(&mut self) -> Result<(), ExecutorError> {
+        error!("Starting executor");
         self.executor_thread.start().map_err(|_| {
             ExecutorError::AlreadyStarted("The Executor has already had start called.".to_string())
         })
@@ -94,6 +95,7 @@ impl ExecutionTaskSubmitter {
         task_iterator: Box<dyn Iterator<Item = ExecutionTask> + Send>,
         notifier: Box<dyn ExecutionTaskCompletionNotifier>,
     ) -> Result<(), ExecutorError> {
+        error!("submitter the task iter");
         self.sender
             .send(ExecutorCommand::CreateReader(task_iterator, notifier))
             .map_err(|_| {

@@ -156,6 +156,7 @@ impl ExecutorThread {
     }
 
     pub fn start(&mut self) -> Result<(), ExecutorThreadError> {
+        error!("Starting internal executor thread");
         if self.sender.is_none() {
             let (registry_sender, receiver) = channel();
 
@@ -232,6 +233,7 @@ impl ExecutorThread {
                 while let Ok(execution_command) = receiver.recv() {
                     match execution_command {
                         ExecutionCommand::Event(execution_event) => {
+                            error!("execution adapter got event");
                             let sender = sender.clone();
                             let (completion_notifier, task) = *execution_event;
                             let (pair, context_id) = task.take();
@@ -269,6 +271,7 @@ impl ExecutorThread {
                                     }
                                 }
                             });
+                            error!("executing event");
                             if let Err(err) = execution_adapter.execute(pair, context_id, callback)
                             {
                                 error!("Unable to execute on adapter {}: {}", index, err);
@@ -292,6 +295,7 @@ impl ExecutorThread {
         sender: ExecutorCommandSender,
         receiver: ExecutorCommandReceiver,
     ) -> Result<JoinHandle<()>, std::io::Error> {
+        error!("Starting internal executor thread - start thread");
         std::thread::Builder::new()
             .name("internal_executor_thread".to_string())
             .spawn(move || {
@@ -305,6 +309,7 @@ impl ExecutorThread {
                 let mut readers: BTreeMap<usize, ExecutionTaskReader> = BTreeMap::new();
                 loop {
                     for execution_event in unparked.drain(0..) {
+                        error!("Unpark event");
                         Self::try_send_execution_event(
                             Box::new(execution_event),
                             &fanout_threads,
@@ -314,6 +319,7 @@ impl ExecutorThread {
 
                     match receiver.recv() {
                         Ok(ExecutorCommand::Execution(execution_event)) => {
+                            error!("Execution event recieved");
                             Self::try_send_execution_event(
                                 execution_event,
                                 &fanout_threads,
@@ -323,6 +329,7 @@ impl ExecutorThread {
                         Ok(ExecutorCommand::RegistrationChange(
                             RegistrationChange::RegisterRequest((transaction_family, sender)),
                         )) => {
+                            error!("Registration change {:?}", transaction_family);
                             if let Some(p) = parked.get_mut(&transaction_family) {
                                 unparked.append(p);
                             }
@@ -347,6 +354,7 @@ impl ExecutorThread {
                         Ok(ExecutorCommand::RegistrationChange(
                             RegistrationChange::UnregisterRequest((transaction_family, sender)),
                         )) => {
+                            error!("unRegistration change {:?}", transaction_family);
                             fanout_threads
                                 .entry(transaction_family)
                                 .and_modify(|ea_senders| {
@@ -375,6 +383,7 @@ impl ExecutorThread {
                         }
 
                         Ok(ExecutorCommand::Shutdown) => {
+                            error!("SHUTDOWn");
                             break;
                         }
                         Err(err) => {
@@ -414,6 +423,7 @@ impl ExecutorThread {
         fanout_threads: &HashMap<TransactionFamily, HashSet<NamedExecutionEventSender>>,
         parked: &mut ParkedExecutionEventsMap,
     ) {
+        error!("try_send_execution_event");
         let tf = TransactionFamily::from_pair(&execution_event.1.pair());
         if let Some(ea_senders) = fanout_threads.get(&tf) {
             if let Some(sender) = ea_senders.iter().next() {
@@ -433,6 +443,7 @@ impl ExecutorThread {
         execution_event: ExecutionEvent,
         transaction_family: TransactionFamily,
     ) {
+        error!("Parking execution event for {:?}", transaction_family);
         let p: Option<ParkedExecutionEvents> = match parked.get_mut(&transaction_family) {
             Some(p) => {
                 p.push(execution_event);

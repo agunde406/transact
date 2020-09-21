@@ -70,14 +70,18 @@ impl SerialScheduler {
         let shared_lock = Arc::new(Mutex::new(shared::Shared::new()));
 
         // Start the thread to accept and process CoreMessage messages
-        core::SchedulerCore::new(
+        if let Err(err) = core::SchedulerCore::new(
             shared_lock.clone(),
             core_rx,
             execution_tx,
             context_lifecycle,
             state_id,
         )
-        .start()?;
+        .start()
+        {
+            error!("BLAJ {}", err);
+            return Err(err);
+        }
 
         Ok(SerialScheduler {
             shared_lock,
@@ -108,6 +112,7 @@ impl Scheduler for SerialScheduler {
     }
 
     fn add_batch(&mut self, batch: BatchPair) -> Result<(), SchedulerError> {
+        error!("Add batch");
         let mut shared = self.shared_lock.lock()?;
 
         if shared.finalized() {
@@ -127,7 +132,7 @@ impl Scheduler for SerialScheduler {
         // to the unscheduled queue above, where we hold a lock; adding a batch
         // must be exclusive with finalize.
         self.core_tx.send(core::CoreMessage::BatchAdded)?;
-
+        error!("Add batch sent");
         Ok(())
     }
 
@@ -173,8 +178,10 @@ impl Scheduler for SerialScheduler {
     }
 
     fn finalize(&mut self) -> Result<(), SchedulerError> {
+        error!("finalize");
         self.shared_lock.lock()?.set_finalized(true);
         self.core_tx.send(core::CoreMessage::Finalized)?;
+        error!("finalize sent");
         Ok(())
     }
 

@@ -43,6 +43,7 @@ impl Iterator for SerialExecutionTaskIterator {
     /// Return the next execution task which is available to be executed.
     fn next(&mut self) -> Option<ExecutionTask> {
         // Send a message to the scheduler requesting the next task be sent.
+        error!("Next called in serial execution task iter");
         match self.tx.send(CoreMessage::Next) {
             Ok(_) => {
                 match self.rx.recv() {

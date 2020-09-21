@@ -57,7 +57,9 @@ impl ExecutionTaskReader {
             let join_handle = thread::Builder::new()
                 .name(format!("ExecutionTaskReader-{}", self.id))
                 .spawn(move || {
+                    error!("checking task_iterator");
                     for execution_task in task_iterator {
+                        error!("got execution_task");
                         if stop.load(Ordering::Relaxed) {
                             break;
                         }

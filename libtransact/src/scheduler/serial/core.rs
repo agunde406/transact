@@ -183,6 +183,7 @@ impl SchedulerCore {
     ///
     /// Returns `true` if the scheduler should shutdown; returns `false` otherwise.
     fn try_shutdown(&mut self) -> Result<bool, CoreError> {
+        error!("try_shutdown");
         let shared = self.shared_lock.lock()?;
         if shared.finalized()
             && self.current_batch.is_none()
@@ -197,36 +198,48 @@ impl SchedulerCore {
             // If another execution task was requested, send `None` to indicate that there
             // are no more tasks to execute
             if self.next_ready {
+                error!("send none to execution tx");
                 self.execution_tx.send(None)?;
             }
 
             Ok(true)
         } else {
+            error!("try_shutdown: don't shutdown");
             Ok(false)
         }
     }
 
     fn try_schedule_next(&mut self) -> Result<(), CoreError> {
+        error!("try_schedule_next");
         if self.current_txn.is_some() {
+            error!("current txn is some");
             return Ok(());
         }
 
         if self.current_batch.is_none() {
+            error!("current batch is none");
             if !self.next_ready {
+                error!("next not ready");
                 return Ok(());
             }
 
             match self.shared_lock.lock()?.pop_unscheduled_batch() {
                 Some(unscheduled_batch) => {
+                    error!("get unscheduled batch");
                     self.txn_queue =
                         VecDeque::from(unscheduled_batch.batch().transactions().to_vec());
                     self.current_batch = Some(unscheduled_batch);
                 }
-                None => return Ok(()),
+                None => {
+                    error!("no unscheduled batches to pop");
+                    return Ok(());
+                }
             }
         }
 
+        error!("get next transaction");
         let transaction = self.txn_queue.pop_front().ok_or_else(|| {
+            error!("internal error next transaction");
             CoreError::Internal(format!(
                 "no transactions left in current batch ({})",
                 self.current_batch
@@ -248,7 +261,7 @@ impl SchedulerCore {
                 return Ok(());
             }
         };
-
+        error!("create context");
         let context_id = match self.previous_context {
             Some(previous_context_id) => self
                 .context_lifecycle
@@ -256,6 +269,7 @@ impl SchedulerCore {
             None => self.context_lifecycle.create_context(&[], &self.state_id),
         };
 
+        error!("submit transaction");
         self.current_txn = Some(transaction_pair.transaction().header_signature().into());
         self.execution_tx
             .send(Some(ExecutionTask::new(transaction_pair, context_id)))?;
@@ -354,12 +368,15 @@ impl SchedulerCore {
     }
 
     fn run(&mut self) -> Result<(), CoreError> {
+        error!("Starting core of serial scheduler");
         loop {
             match self.rx.recv() {
                 Ok(CoreMessage::BatchAdded) => {
+                    error!("batch_added");
                     self.try_schedule_next()?;
                 }
                 Ok(CoreMessage::ExecutionResult(task_notification)) => {
+                    error!("execution_result");
                     let current_txn_id = self.current_txn.clone().unwrap_or_else(|| "".into());
                     match task_notification {
                         ExecutionTaskCompletionNotification::Valid(context_id, transaction_id) => {
@@ -375,6 +392,7 @@ impl SchedulerCore {
                                 self.context_lifecycle
                                     .get_transaction_receipt(&context_id, &transaction_id)?,
                             );
+                            error!("execution_result valid");
                         }
                         ExecutionTaskCompletionNotification::Invalid(_context_id, result) => {
                             if result.transaction_id != current_txn_id {
@@ -384,6 +402,7 @@ impl SchedulerCore {
                                 continue;
                             }
                             self.current_txn = None;
+                            error!("execution_result invalid");
                             self.invalidate_current_batch(result)?;
                         }
                     };
@@ -395,16 +414,19 @@ impl SchedulerCore {
                     // A transaction has finished executing, so the scheduler may be ready to
                     // shutdown
                     if self.try_shutdown()? {
+                        error!("execution_result, breaking");
                         break;
                     }
 
                     self.try_schedule_next()?;
                 }
                 Ok(CoreMessage::Next) => {
+                    error!("next");
                     self.next_ready = true;
                     self.try_schedule_next()?;
                 }
                 Ok(CoreMessage::Cancelled(sender)) => {
+                    error!("cancelled");
                     // If a batch is currently executing, return it using the provided sender
                     sender.send(self.current_batch.take()).map_err(|_| {
                         CoreError::Internal("aborted batch receiver dropped".into())
@@ -415,14 +437,18 @@ impl SchedulerCore {
                     // No batches are executing or in the queue now, so the scheduler may be ready
                     // to shutdown
                     if self.try_shutdown()? {
+                        error!("cancelled, breaking");
                         break;
                     }
                 }
                 Ok(CoreMessage::Finalized) => {
+                    error!("finalized: check if shutdown");
                     // The scheduler is finalized now, so it may be ready to shutdown
                     if self.try_shutdown()? {
+                        error!("finalized, shutdown");
                         break;
                     }
+                    error!("finalized");
                 }
                 Err(err) => {
                     // This is expected if the other side shuts down
@@ -439,9 +465,11 @@ impl SchedulerCore {
     }
 
     pub fn start(mut self) -> Result<std::thread::JoinHandle<()>, SchedulerError> {
+        error!("Does it get here");
         thread::Builder::new()
             .name(String::from("Thread-SerialScheduler"))
             .spawn(move || {
+                error!("Starting serial scheduler");
                 if let Err(err) = self.run() {
                     // Attempt to send notification using the error callback; if that fails, just
                     // log it.
@@ -449,6 +477,7 @@ impl SchedulerCore {
                         "serial scheduler's internal thread ended due to error: {}",
                         err
                     ));
+                    error!("Scheduler error! {}", error);
                     self.send_scheduler_error(error.clone())
                         .unwrap_or_else(|_| error!("{}", error));
                 }
