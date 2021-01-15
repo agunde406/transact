@@ -24,6 +24,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 
+#[cfg(feature = "signing")]
 use cylinder::{Signer, SigningError};
 use protobuf::Message;
 
@@ -400,6 +401,7 @@ impl From<ProtoConversionError> for BatchBuildError {
     }
 }
 
+#[cfg(feature = "signing")]
 impl From<SigningError> for BatchBuildError {
     fn from(err: SigningError) -> Self {
         Self::SigningError(err.to_string())
@@ -427,6 +429,7 @@ impl BatchBuilder {
         self
     }
 
+    #[cfg(feature = "signing")]
     pub fn build_pair(self, signer: &dyn Signer) -> Result<BatchPair, BatchBuildError> {
         let transactions = self.transactions.ok_or_else(|| {
             BatchBuildError::MissingField("'transactions' field is required".to_string())
@@ -470,11 +473,13 @@ impl BatchBuilder {
         Ok(BatchPair { batch, header })
     }
 
+    #[cfg(feature = "signing")]
     pub fn build(self, signer: &dyn Signer) -> Result<Batch, BatchBuildError> {
         Ok(self.build_pair(signer)?.batch)
     }
 }
 
+#[cfg(feature = "signing")]
 #[cfg(test)]
 mod tests {
     use super::*;

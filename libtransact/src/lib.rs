@@ -115,10 +115,13 @@
 
 #![cfg_attr(feature = "nightly", feature(test))]
 
+#[cfg(feature = "context")]
 pub mod context;
 #[cfg(feature = "contract")]
 pub mod contract;
+#[cfg(feature = "database")]
 pub mod database;
+#[cfg(feature = "context")]
 pub mod execution;
 pub mod families;
 pub mod handler;
@@ -127,11 +130,13 @@ pub mod protocol;
 pub mod protos;
 #[cfg(feature = "sawtooth-compat")]
 pub mod sawtooth;
+#[cfg(feature = "context")]
 pub mod scheduler;
 pub mod state;
 #[cfg(feature = "workload")]
 pub mod workload;
 
+#[cfg(feature = "logging")]
 #[macro_use]
 extern crate log;
 #[cfg(feature = "contract-archive")]

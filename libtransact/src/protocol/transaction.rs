@@ -23,18 +23,24 @@
 use std::error::Error as StdError;
 use std::fmt;
 
+#[cfg(feature = "signing")]
 use cylinder::{Signer, SigningError};
 use protobuf::Message;
+#[cfg(feature = "signing")]
 use rand::distributions::Alphanumeric;
+#[cfg(feature = "signing")]
 use rand::Rng;
+#[cfg(feature = "signing")]
 use sha2::{Digest, Sha512};
 
 use crate::protos::{
     self, FromBytes, FromNative, FromProto, IntoBytes, IntoNative, IntoProto, ProtoConversionError,
 };
 
+#[cfg(feature = "signing")]
 use super::batch::BatchBuilder;
 
+#[cfg(feature = "signing")]
 static DEFAULT_NONCE_SIZE: usize = 32;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -407,6 +413,7 @@ impl From<ProtoConversionError> for TransactionBuildError {
     }
 }
 
+#[cfg(feature = "signing")]
 impl From<SigningError> for TransactionBuildError {
     fn from(err: SigningError) -> Self {
         Self::SigningError(err.to_string())
@@ -479,6 +486,7 @@ impl TransactionBuilder {
         self
     }
 
+    #[cfg(feature = "signing")]
     pub fn build_pair(self, signer: &dyn Signer) -> Result<TransactionPair, TransactionBuildError> {
         let signer_public_key = signer.public_key()?.as_slice().to_vec();
         let batcher_public_key = self
@@ -560,10 +568,12 @@ impl TransactionBuilder {
         })
     }
 
+    #[cfg(feature = "signing")]
     pub fn build(self, signer: &dyn Signer) -> Result<Transaction, TransactionBuildError> {
         Ok(self.build_pair(signer)?.transaction)
     }
 
+    #[cfg(feature = "signing")]
     pub fn into_batch_builder(
         self,
         signer: &dyn Signer,
@@ -572,6 +582,7 @@ impl TransactionBuilder {
     }
 }
 
+#[cfg(feature = "signing")]
 #[cfg(test)]
 mod tests {
     use super::*;

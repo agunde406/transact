@@ -19,13 +19,19 @@
 
 use std::{thread, time};
 
+#[cfg(feature = "signing")]
 use cylinder::Signer;
 
 use crate::handler::{ApplyError, TransactionContext, TransactionHandler};
+#[cfg(feature = "signing")]
 use crate::protocol;
 use crate::protocol::command::{Command, CommandPayload, SleepType};
-use crate::protocol::transaction::{HashMethod, TransactionBuilder, TransactionPair};
-use crate::protos::{FromBytes, IntoBytes};
+use crate::protocol::transaction::TransactionPair;
+#[cfg(feature = "signing")]
+use crate::protocol::transaction::{HashMethod, TransactionBuilder};
+use crate::protos::FromBytes;
+#[cfg(feature = "signing")]
+use crate::protos::IntoBytes;
 
 const COMMAND_FAMILY_NAME: &str = "command";
 const COMMAND_VERSION: &str = "0.1";
@@ -122,6 +128,7 @@ impl TransactionHandler for CommandTransactionHandler {
     }
 }
 
+#[cfg(feature = "signing")]
 pub fn make_command_transaction(commands: &[Command], signer: &dyn Signer) -> TransactionPair {
     let command_payload = protocol::command::CommandPayload::new(commands.to_vec());
     TransactionBuilder::new()
